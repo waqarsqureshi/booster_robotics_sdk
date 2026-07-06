@@ -52,23 +52,29 @@ int main(int argc, char* argv[]) {
         TOPIC_QOS_DEFAULT);
     if (!topic) {
         std::cerr << "Failed to create topic\n";
+        DomainParticipantFactory::get_instance()->delete_participant(participant);
         return 1;
     }
 
     Publisher* publisher = participant->create_publisher(PUBLISHER_QOS_DEFAULT, nullptr);
     if (!publisher) {
         std::cerr << "Failed to create publisher\n";
+        participant->delete_topic(topic);
+        DomainParticipantFactory::get_instance()->delete_participant(participant);
         return 1;
     }
 
     DataWriter* writer = publisher->create_datawriter(topic, DATAWRITER_QOS_DEFAULT, nullptr);
     if (!writer) {
         std::cerr << "Failed to create writer\n";
+        participant->delete_publisher(publisher);
+        participant->delete_topic(topic);
+        DomainParticipantFactory::get_instance()->delete_participant(participant);
         return 1;
     }
 
     // ---- Booster loco client ----
-    booster::robot::ChannelFactory::Instance()->Init(0, "lo");
+    booster::robot::ChannelFactory::Instance()->Init(0, argv[1]);
     B1LocoClient loco;
     loco.Init();
     std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -89,6 +95,10 @@ int main(int argc, char* argv[]) {
         std::cout << "[OK  ] Robot mode set to kSoccer successfully.\n";
     } else {
         std::cerr << "[FAIL] Could not set kSoccer mode, rc=" << rc_soccer << ". Aborting.\n";
+        publisher->delete_datawriter(writer);
+        participant->delete_publisher(publisher);
+        participant->delete_topic(topic);
+        DomainParticipantFactory::get_instance()->delete_participant(participant);
         return rc_soccer;
     }
     std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -96,6 +106,10 @@ int main(int argc, char* argv[]) {
     int ret = loco.VisualKick(true, VisualKickVersion::kV2); // enable policy
     if (ret != 0) {
         std::cerr << "VisualKick(true) failed: " << ret << "\n";
+        publisher->delete_datawriter(writer);
+        participant->delete_publisher(publisher);
+        participant->delete_topic(topic);
+        DomainParticipantFactory::get_instance()->delete_participant(participant);
         return ret;
     }
 
